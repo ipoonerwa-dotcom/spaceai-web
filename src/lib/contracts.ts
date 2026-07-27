@@ -10,7 +10,7 @@ export const TOKEN_ADDRESS = "0x70206b263AF3b714d3455eC2c6f790cd82D9AAAA" as con
  * in "coming soon". VITE_BANK_ADDRESS still overrides it for staging/testing.
  */
 export const BANK_ADDRESS = (import.meta.env.VITE_BANK_ADDRESS ||
-  "0xC0CeD5B28443d85082D35e944b2131f6c565Bb8a") as `0x${string}`;
+  "0x42FA73aD691D2d3B080b3f23f3c2efF560fe0FD9") as `0x${string}`;
 
 export const PANCAKE_BUY_URL = `https://pancakeswap.finance/swap?outputCurrency=${TOKEN_ADDRESS}`;
 export const EXPLORER = "https://bscscan.com";

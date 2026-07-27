@@ -110,7 +110,9 @@ function StakeTab({ address, storedRef }: { address: string; storedRef: string |
     contracts: [
       { ...token, functionName: "balanceOf", args: [address as `0x${string}`] },
       { ...token, functionName: "allowance", args: [address as `0x${string}`, BANK_ADDRESS as `0x${string}`] },
-      { ...bank, functionName: "priceUsdPerToken" },
+      // the deposit is priced with stakePriceUsd (min of quote and spot), so preview with the
+      // same number the contract will actually use
+      { ...bank, functionName: "stakePriceUsd" },
       { ...bank, functionName: "referrerOf", args: [address as `0x${string}`] },
       { ...bank, functionName: "paused" },
     ],
@@ -241,7 +243,8 @@ function PositionsTab({ address }: { address: string }) {
   const bank = { address: BANK_ADDRESS as `0x${string}`, abi: BANK_ABI as never };
   const { data: lenRaw, refetch: refetchLen } = useReadContract({ ...bank, functionName: "stakesLength", args: [address as `0x${string}`] });
   const len = Number(asBig(lenRaw));
-  const { data: price } = useReadContract({ ...bank, functionName: "priceUsdPerToken" });
+  // payouts convert USD -> tokens at payoutPriceUsd (max of quote and spot)
+  const { data: price } = useReadContract({ ...bank, functionName: "payoutPriceUsd" });
 
   const idxs = useMemo(() => Array.from({ length: len }, (_, i) => i), [len]);
   const { data: rows, refetch } = useReadContracts({
