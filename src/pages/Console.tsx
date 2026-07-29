@@ -156,6 +156,20 @@ function StakeTab({ address, storedRef }: { address: string; storedRef: string |
     } catch (e) { setMsg({ k: "err", t: errText(e, t) }); }
   };
 
+  // optional shortcut: write the referral on-chain right away instead of waiting for the
+  // first stake to carry it. The wallet still has to approve a transaction — there is no way
+  // to bind silently — so this is offered as a button rather than fired automatically.
+  const doBind = async () => {
+    setMsg(null);
+    if (!storedRef || !/^0x[a-fA-F0-9]{40}$/.test(storedRef)) return;
+    try {
+      const h = await writeContractAsync({ ...bank, functionName: "bindReferrer", args: [storedRef as `0x${string}`] });
+      setTxHash(h);
+      setMsg({ k: "ok", t: t("a.refBound") });
+      setTimeout(() => refetch(), 5000);
+    } catch (e) { setMsg({ k: "err", t: errText(e, t) }); }
+  };
+
   const doStake = async () => {
     setMsg(null);
     if (amountWei <= 0n) return setMsg({ k: "err", t: t("a.errAmount") });
@@ -211,10 +225,20 @@ function StakeTab({ address, storedRef }: { address: string; storedRef: string |
             <span className="ref-note">{t("a.refOnchain")}</span>
           </div>
         ) : storedRef ? (
-          <div className="ref-locked">
-            <span className="mini">{t("a.refLocked")}</span>
-            <b>{shortAddr(storedRef)}</b>
-            <span className="ref-note">{t("a.refPending")}</span>
+          <div className="ref-locked" style={{ flexDirection: "column", alignItems: "stretch", gap: 8 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+              <span className="mini">{t("a.refLocked")}</span>
+              <b>{shortAddr(storedRef)}</b>
+              <button
+                className="btn btn-primary btn-sm"
+                style={{ marginLeft: "auto", padding: "7px 14px", fontSize: 12.5 }}
+                disabled={busy}
+                onClick={doBind}
+              >
+                {busy ? <span className="spinner" /> : null} {busy ? t("a.refBinding") : t("a.refBindNow")}
+              </button>
+            </div>
+            <span style={{ fontSize: 11.5, color: "var(--text-3)", lineHeight: 1.6 }}>{t("a.refBindTip")}</span>
           </div>
         ) : (
           <div className="field" style={{ marginBottom: 18 }}>
