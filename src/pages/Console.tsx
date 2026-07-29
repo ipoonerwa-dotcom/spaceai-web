@@ -10,6 +10,11 @@ type Tab = "stake" | "positions" | "invite" | "team";
 
 const ZERO = "0x0000000000000000000000000000000000000000";
 
+/** An invite link that has been opened but not yet claimed by a connected wallet. */
+const REF_PENDING = "spaceai_ref_pending";
+/** Each wallet keeps its own referrer, so switching accounts does not inherit someone else's. */
+const REF_KEY = (addr: string) => `spaceai_ref:${addr.toLowerCase()}`;
+
 /** wagmi results are `unknown | undefined`; these keep the call sites readable. */
 const asBig = (v: unknown): bigint => (typeof v === "bigint" ? v : 0n);
 const asStr = (v: unknown): string => (typeof v === "string" ? v : ZERO);
@@ -28,21 +33,37 @@ export default function Console() {
   const [tab, setTab] = useState<Tab>(teamDeepLink ? "team" : "stake");
   const [walletOpen, setWalletOpen] = useState(false);
 
-  // First invite link wins. Once a referrer is captured it is never overwritten by a later
-  // link, so someone who opens A's link and then B's still belongs to A — the relationship is
-  // effectively settled the moment the first link is opened, and only written on-chain when
-  // they stake.
+  // Referral capture, first link wins — but scoped PER WALLET, not per browser.
+  //
+  // A single global key meant one browser could only ever hold one referrer: switching wallets
+  // still read the first address that was ever captured, so a second invite link appeared to be
+  // ignored. Now an unclaimed link sits in `pending`, and the first wallet to connect claims it
+  // into its own key and frees `pending` for the next one. Within a wallet the first captured
+  // referrer is still permanent, which is the behaviour we want.
   const refParam = params.get("ref");
-  const [storedRef, setStoredRef] = useState<string | null>(
-    () => (typeof localStorage !== "undefined" ? localStorage.getItem("spaceai_ref") : null)
-  );
+  const [storedRef, setStoredRef] = useState<string | null>(null);
+
   useEffect(() => {
     if (!refParam || !/^0x[a-fA-F0-9]{40}$/.test(refParam)) return;
-    const existing = localStorage.getItem("spaceai_ref");
-    if (existing) return; // already claimed by whoever got here first
-    localStorage.setItem("spaceai_ref", refParam);
-    setStoredRef(refParam);
+    if (localStorage.getItem(REF_PENDING)) return; // first link wins while still unclaimed
+    localStorage.setItem(REF_PENDING, refParam);
   }, [refParam]);
+
+  useEffect(() => {
+    if (!address) { setStoredRef(null); return; }
+    const key = REF_KEY(address);
+    let mine = localStorage.getItem(key);
+    if (!mine) {
+      const pending = localStorage.getItem(REF_PENDING);
+      // never let someone bind to themselves — the contract rejects it anyway
+      if (pending && pending.toLowerCase() !== address.toLowerCase()) {
+        localStorage.setItem(key, pending);
+        mine = pending;
+      }
+      if (pending) localStorage.removeItem(REF_PENDING);
+    }
+    setStoredRef(mine);
+  }, [address, refParam]);
 
   if (!deployed) return <NotDeployed />;
 
