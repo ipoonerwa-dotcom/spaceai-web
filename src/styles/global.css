@@ -6,7 +6,23 @@
    small caps kicker -> large display title -> lead -> card grid.
    ============================================================ */
 
-@import url("https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap");
+/* Fonts are self-hosted on purpose: fonts.googleapis.com is unreachable from mainland China,
+   and a blocked @import stalls first paint until it times out. Variable woff2, latin subset —
+   CJK text falls through to the system stack below. */
+@font-face {
+  font-family: "Manrope";
+  src: url("/fonts/manrope-latin.woff2") format("woff2");
+  font-weight: 400 800;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "JetBrains Mono";
+  src: url("/fonts/jetbrainsmono-latin.woff2") format("woff2");
+  font-weight: 400 700;
+  font-style: normal;
+  font-display: swap;
+}
 
 :root {
   --bg: #04030c;
