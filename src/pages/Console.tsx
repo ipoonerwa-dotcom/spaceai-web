@@ -148,6 +148,9 @@ function StakeTab({ address, storedRef }: { address: string; storedRef: string |
       { ...bank, functionName: "stakePriceUsd" },
       { ...bank, functionName: "referrerOf", args: [address as `0x${string}`] },
       { ...bank, functionName: "paused" },
+      { ...bank, functionName: "minStakeUsd" },
+      { ...bank, functionName: "maxStakeUsd" },
+      { ...bank, functionName: "remainingCapacityUsd", args: [address as `0x${string}`] },
     ],
   });
 
@@ -157,10 +160,21 @@ function StakeTab({ address, storedRef }: { address: string; storedRef: string |
   const boundRef = asStr(reads?.[3]?.result);
   const paused = asBool(reads?.[4]?.result);
 
+  const minUsd = asBig(reads?.[5]?.result);
+  const maxUsd = asBig(reads?.[6]?.result);
+  const remainingUsd = asBig(reads?.[7]?.result);
+
   const amountWei = toWei(amount);
   const needsApprove = amountWei > 0n && allowance < amountWei;
   const usdValue = price > 0n ? (Number(amountWei) / 1e18) * (Number(price) / 1e18) : 0;
   const chosen = TERMS.find((x) => x.days === term)!;
+
+  // mirror the contract's limits client-side so the user sees the problem before paying gas
+  const usdWei = price > 0n ? (amountWei * price) / 10n ** 18n : 0n;
+  const belowMin = amountWei > 0n && minUsd > 0n && usdWei < minUsd;
+  const overCap = amountWei > 0n && maxUsd > 0n && usdWei > remainingUsd;
+  const capFull = maxUsd > 0n && remainingUsd < 10n ** 12n;
+  const limitBlocked = belowMin || overCap || capFull;
 
   const { writeContractAsync, isPending } = useWriteContract();
   const [txHash, setTxHash] = useState<`0x${string}` | undefined>();
@@ -269,7 +283,19 @@ function StakeTab({ address, storedRef }: { address: string; storedRef: string |
         )}
 
         <div className="divider" />
-        <div className="kv"><span>{t("a.lockedUsd")}</span><b>{usd(usdValue)}</b></div>
+        {maxUsd > 0n && (
+          <>
+            <div className="kv"><span>{t("a.limits")}</span><b style={{ fontSize: 12.5 }}>{usd(fromWei(minUsd), 0)} – {usd(fromWei(maxUsd), 0)}</b></div>
+            <div className="kv">
+              <span>{t("a.remaining")}</span>
+              <b style={{ color: capFull ? "var(--down)" : undefined }}>{usd(fromWei(remainingUsd))}</b>
+            </div>
+          </>
+        )}
+        <div className="kv">
+          <span>{t("a.lockedUsd")}</span>
+          <b style={{ color: belowMin || overCap ? "var(--down)" : undefined }}>{usd(usdValue)}</b>
+        </div>
         <div className="kv"><span>{t("a.dailyRate")}</span><b>{chosen.rate}</b></div>
         <div className="kv"><span>{t("a.unlock")}</span><b>{term} {t("a.unlockV")}</b></div>
 
@@ -279,11 +305,14 @@ function StakeTab({ address, storedRef }: { address: string; storedRef: string |
               {busy ? <span className="spinner" /> : null} {t("a.approve")} {TOKEN_SYMBOL}
             </button>
           ) : (
-            <button className="btn btn-primary btn-block" onClick={doStake} disabled={busy || paused || amountWei <= 0n}>
+            <button className="btn btn-primary btn-block" onClick={doStake} disabled={busy || paused || amountWei <= 0n || limitBlocked}>
               {busy ? <span className="spinner" /> : null} {t("a.confirmStake")}
             </button>
           )}
         </div>
+        {capFull && <div className="notice warn" style={{ marginTop: 14 }}>{t("a.capFull")}</div>}
+        {!capFull && belowMin && <div className="notice bad" style={{ marginTop: 14 }}>{t("a.errBelowMin")}</div>}
+        {!capFull && overCap && <div className="notice bad" style={{ marginTop: 14 }}>{t("a.errOverCap")}</div>}
         {msg && <div className={`notice ${msg.k === "err" ? "bad" : ""}`} style={{ marginTop: 14 }}>{msg.t}</div>}
       </div>
 
@@ -639,6 +668,8 @@ function errText(e: unknown, t: (k: string) => string): string {
   if (/rejected|denied|User denied/i.test(m)) return t("a.errCancel");
   if (/insufficient funds/i.test(m)) return t("a.errGas");
   if (/stale price/i.test(m)) return t("a.errStale");
+  if (/below minimum/i.test(m)) return t("a.errBelowMin");
+  if (/over limit/i.test(m)) return t("a.errOverCap");
   if (/locked/i.test(m)) return t("a.errLocked");
   if (/paused/i.test(m)) return t("a.errPaused");
   return m.slice(0, 150);
