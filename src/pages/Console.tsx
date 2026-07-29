@@ -6,7 +6,7 @@ import { useI18n } from "../lib/i18n";
 import { BANK_ABI, BANK_ADDRESS, ERC20_ABI, TOKEN_ADDRESS, TERMS, TOKEN_SYMBOL, maturityMultiple, PANCAKE_BUY_URL } from "../lib/contracts";
 import { fromWei, usd, compact, toWei, countdown, shortAddr } from "../lib/format";
 
-type Tab = "stake" | "positions" | "team";
+type Tab = "stake" | "positions" | "invite" | "team";
 
 const ZERO = "0x0000000000000000000000000000000000000000";
 
@@ -54,12 +54,14 @@ export default function Console() {
             <div className="tabs">
               <button className={`tab ${tab === "stake" ? "on" : ""}`} onClick={() => setTab("stake")}>{t("a.tabStake")}</button>
               <button className={`tab ${tab === "positions" ? "on" : ""}`} onClick={() => setTab("positions")}>{t("a.tabPos")}</button>
+              <button className={`tab ${tab === "invite" ? "on" : ""}`} onClick={() => setTab("invite")}>{t("a.tabRef")}</button>
               {teamDeepLink && (
                 <button className={`tab ${tab === "team" ? "on" : ""}`} onClick={() => setTab("team")}>Team</button>
               )}
             </div>
             {tab === "stake" && <StakeTab address={address!} storedRef={storedRef} />}
             {tab === "positions" && <PositionsTab address={address!} />}
+            {tab === "invite" && <InviteTab address={address!} />}
             {tab === "team" && <TeamTab address={address!} />}
           </>
         )}
@@ -187,9 +189,11 @@ function StakeTab({ address, storedRef }: { address: string; storedRef: string |
           </button>
         </div>
 
-        {boundRef === ZERO && refInput && (
+        {/* shown whenever no referrer is bound yet, so someone who arrived without an invite
+            link can still paste one in — arriving via ?ref= just pre-fills it */}
+        {boundRef === ZERO && (
           <div className="field" style={{ marginBottom: 18 }}>
-            <label>Referrer</label>
+            <label>{t("a.refInput")}</label>
             <input className="input" placeholder="0x…" value={refInput} onChange={(e) => setRefInput(e.target.value)} />
           </div>
         )}
@@ -394,6 +398,105 @@ function Metric({ label, value, sub, accent }: { label: string; value: string; s
 }
 
 /* ---------------------------------------------------------------- */
+
+/**
+ * Invite panel: the user's own link plus their own numbers. Deliberately shows account data
+ * only — the level thresholds and differential percentages stay out of the public UI.
+ */
+function InviteTab({ address }: { address: string }) {
+  const { t } = useI18n();
+  const [copied, setCopied] = useState(false);
+  const bank = { address: BANK_ADDRESS as `0x${string}`, abi: BANK_ABI as never };
+
+  const { data } = useReadContracts({
+    contracts: [
+      { ...bank, functionName: "levelOf", args: [address as `0x${string}`] },
+      { ...bank, functionName: "teamVolumeUsd", args: [address as `0x${string}`] },
+      { ...bank, functionName: "directCount", args: [address as `0x${string}`] },
+      { ...bank, functionName: "directVolumeUsd", args: [address as `0x${string}`] },
+      { ...bank, functionName: "referrerOf", args: [address as `0x${string}`] },
+      { ...bank, functionName: "stakesLength", args: [address as `0x${string}`] },
+    ],
+  });
+
+  const lvl = data?.[0]?.result as readonly [bigint, bigint] | undefined;
+  const teamVol = asBig(data?.[1]?.result);
+  const dCount = asBig(data?.[2]?.result);
+  const dVol = asBig(data?.[3]?.result);
+  const upline = asStr(data?.[4]?.result);
+  const stakeCount = Number(asBig(data?.[5]?.result));
+
+  // the user's own staked principal = sum of every position's locked USD
+  const { data: myStakes } = useReadContracts({
+    contracts: Array.from({ length: stakeCount }, (_, i) => ({
+      ...bank, functionName: "stakesOf", args: [address as `0x${string}`, BigInt(i)],
+    })),
+    query: { enabled: stakeCount > 0 },
+  });
+  const myStakeUsd = (myStakes ?? []).reduce((sum, r) => {
+    const row = r?.result as readonly [bigint, ...unknown[]] | undefined;
+    return sum + (row ? row[0] : 0n);
+  }, 0n);
+
+  const link = `${window.location.origin}/app?ref=${address}`;
+
+  const copy = () => {
+    navigator.clipboard?.writeText(link)
+      .then(() => { setCopied(true); setTimeout(() => setCopied(false), 1800); })
+      .catch(() => {});
+  };
+
+  const share = () => {
+    // native share sheet where available (mobile / in-wallet browsers), clipboard otherwise
+    const nav = navigator as Navigator & { share?: (d: { title: string; text: string; url: string }) => Promise<void> };
+    if (nav.share) {
+      nav.share({ title: "SPACEAI", text: t("a.refBody"), url: link }).catch(() => {});
+    } else {
+      copy();
+    }
+  };
+
+  const levelLabel = lvl && Number(lvl[0]) > 0 ? `V${lvl[0]} · ${Number(lvl[1]) / 100}%` : "—";
+
+  return (
+    <div className="invite-grid">
+      <div className="card">
+        <div className="kicker" style={{ marginBottom: 14 }}>{t("a.refTitle")}</div>
+        <p style={{ fontSize: 13.8, color: "var(--text-2)", lineHeight: 1.8, marginBottom: 18 }}>
+          {t("a.refBody")}
+        </p>
+        <div className="copy-row">
+          <input className="input" readOnly value={link} onFocus={(e) => e.currentTarget.select()} />
+          <button className="btn btn-primary btn-sm" onClick={copy}>{copied ? t("a.refCopied") : t("a.refCopy")}</button>
+          <button className="btn btn-ghost btn-sm" onClick={share}>↗</button>
+        </div>
+      </div>
+
+      <div className="invite-stats">
+        <StatBox label={t("a.refLevel")} value={levelLabel} accent />
+        <StatBox label={t("a.refTeam")} value={usd(fromWei(teamVol))} />
+        <StatBox label={t("a.refDirects")} value={String(dCount)} />
+        <StatBox label={t("a.refDirectVol")} value={usd(fromWei(dVol))} />
+        <StatBox label={t("a.refMyStake")} value={usd(fromWei(myStakeUsd))} />
+        <StatBox label={t("a.refMine")} value={upline === ZERO ? t("a.refNone") : shortAddr(upline)} small />
+      </div>
+    </div>
+  );
+}
+
+function StatBox({ label, value, accent, small }: { label: string; value: string; accent?: boolean; small?: boolean }) {
+  return (
+    <div className="pos">
+      <div className="mini" style={{ marginBottom: 7 }}>{label}</div>
+      <div
+        className={accent ? "grad-text" : ""}
+        style={{ fontSize: small ? 15 : 21, fontWeight: 800, fontFamily: "var(--mono)" }}
+      >
+        {value}
+      </div>
+    </div>
+  );
+}
 
 /** Reached only via /app?tab=team — kept out of the public tab bar on purpose. */
 function TeamTab({ address }: { address: string }) {
