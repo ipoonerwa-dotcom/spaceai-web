@@ -208,6 +208,14 @@ const D: Record<string, Record<Lang, string>> = {
   "a.refLevel": { zh: "我的等级", en: "My level", ja: "自分のレベル", ko: "내 등급" },
   "a.refTeam": { zh: "团队业绩", en: "Team volume", ja: "チーム実績", ko: "팀 실적" },
   "a.refSmall": { zh: "小区业绩", en: "Small area", ja: "小エリア実績", ko: "소구역 실적" },
+  // level names (display only — the contract just stores V1..V5 as indexes)
+  "lv.1": { zh: "星尘", en: "Stardust", ja: "スターダスト", ko: "스타더스트" },
+  "lv.2": { zh: "拓荒者", en: "Pioneer", ja: "パイオニア", ko: "파이오니어" },
+  "lv.3": { zh: "远征军", en: "Expedition", ja: "遠征軍", ko: "원정군" },
+  "lv.4": { zh: "星域领主", en: "Warden", ja: "星域領主", ko: "성역 영주" },
+  "lv.5": { zh: "创世者", en: "Genesis", ja: "創世者", ko: "창세자" },
+  "lv.0": { zh: "未定级", en: "Unranked", ja: "ランク外", ko: "등급 없음" },
+
   "a.refDirects": { zh: "直推人数", en: "Direct referrals", ja: "直接紹介人数", ko: "직접 추천 인원" },
   "a.refDirectVol": { zh: "直推业绩", en: "Direct volume", ja: "直接紹介実績", ko: "직접 추천 실적" },
   "a.refMyStake": { zh: "我的质押", en: "My stake", ja: "自分のステーク", ko: "내 스테이킹" },

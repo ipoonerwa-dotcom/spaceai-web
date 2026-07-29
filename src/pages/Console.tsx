@@ -456,7 +456,8 @@ function InviteTab({ address }: { address: string }) {
     }
   };
 
-  const levelLabel = lvl && Number(lvl[0]) > 0 ? `V${lvl[0]} · ${Number(lvl[1]) / 100}%` : "—";
+  const lvNum = lvl ? Number(lvl[0]) : 0;
+  const levelLabel = lvNum > 0 ? `${t(`lv.${lvNum}`)} · ${Number(lvl![1]) / 100}%` : t("lv.0");
 
   return (
     <div className="invite-grid">
@@ -500,6 +501,7 @@ function StatBox({ label, value, accent, small }: { label: string; value: string
 
 /** Reached only via /app?tab=team — kept out of the public tab bar on purpose. */
 function TeamTab({ address }: { address: string }) {
+  const { t } = useI18n();
   const bank = { address: BANK_ADDRESS as `0x${string}`, abi: BANK_ABI as never };
   const [copied, setCopied] = useState(false);
 
@@ -528,7 +530,9 @@ function TeamTab({ address }: { address: string }) {
     <div style={{ display: "grid", gap: 20 }}>
       <div className="stats">
         <div className="stat">
-          <div className="stat-num grad-text">{lvl ? (Number(lvl[0]) === 0 ? "—" : `V${lvl[0]}`) : "—"}</div>
+          <div className="stat-num grad-text" style={{ fontSize: 22 }}>
+            {lvl && Number(lvl[0]) > 0 ? `V${lvl[0]} ${t(`lv.${Number(lvl[0])}`)}` : "—"}
+          </div>
           <div className="stat-label">Level</div>
         </div>
         <div className="stat">
