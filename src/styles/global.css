@@ -382,6 +382,16 @@ input { font-family: inherit; }
 .copy-row { display: flex; gap: 10px; align-items: center; }
 .copy-row .input { flex: 1; font-size: 12.5px; min-width: 0; }
 
+/* bound-referrer readout on the stake form */
+.ref-locked {
+  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+  border: 1px solid var(--line-violet); background: rgba(124, 92, 255, 0.07);
+  border-radius: var(--r-md); padding: 12px 14px; margin-bottom: 18px;
+}
+.ref-locked b { font-family: var(--mono); font-size: 14px; color: var(--text); }
+.ref-locked .ref-note { margin-left: auto; font-size: 11.5px; color: var(--violet-2); font-family: var(--mono); }
+@media (max-width: 520px) { .ref-locked .ref-note { margin-left: 0; width: 100%; } }
+
 /* invite panel: link block on the left, the user's own numbers on the right */
 .invite-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; align-items: start; }
 @media (max-width: 900px) { .invite-grid { grid-template-columns: 1fr; } }

@@ -28,11 +28,21 @@ export default function Console() {
   const [tab, setTab] = useState<Tab>(teamDeepLink ? "team" : "stake");
   const [walletOpen, setWalletOpen] = useState(false);
 
+  // First invite link wins. Once a referrer is captured it is never overwritten by a later
+  // link, so someone who opens A's link and then B's still belongs to A — the relationship is
+  // effectively settled the moment the first link is opened, and only written on-chain when
+  // they stake.
   const refParam = params.get("ref");
+  const [storedRef, setStoredRef] = useState<string | null>(
+    () => (typeof localStorage !== "undefined" ? localStorage.getItem("spaceai_ref") : null)
+  );
   useEffect(() => {
-    if (refParam && /^0x[a-fA-F0-9]{40}$/.test(refParam)) localStorage.setItem("spaceai_ref", refParam);
+    if (!refParam || !/^0x[a-fA-F0-9]{40}$/.test(refParam)) return;
+    const existing = localStorage.getItem("spaceai_ref");
+    if (existing) return; // already claimed by whoever got here first
+    localStorage.setItem("spaceai_ref", refParam);
+    setStoredRef(refParam);
   }, [refParam]);
-  const storedRef = typeof localStorage !== "undefined" ? localStorage.getItem("spaceai_ref") : null;
 
   if (!deployed) return <NotDeployed />;
 
@@ -150,7 +160,10 @@ function StakeTab({ address, storedRef }: { address: string; storedRef: string |
     setMsg(null);
     if (amountWei <= 0n) return setMsg({ k: "err", t: t("a.errAmount") });
     if (amountWei > balance) return setMsg({ k: "err", t: t("a.errBalance") });
-    const ref = boundRef !== ZERO ? ZERO : (/^0x[a-fA-F0-9]{40}$/.test(refInput) ? refInput : ZERO);
+    // a captured invite link always wins over the manual field (which only appears when
+    // there is no captured referrer at all); if already bound on-chain, send zero
+    const candidate = storedRef || refInput;
+    const ref = boundRef !== ZERO ? ZERO : (/^0x[a-fA-F0-9]{40}$/.test(candidate) ? candidate : ZERO);
     try {
       const h = await writeContractAsync({ ...bank, functionName: "stake", args: [term, amountWei, ref as `0x${string}`] });
       setTxHash(h);
@@ -189,9 +202,21 @@ function StakeTab({ address, storedRef }: { address: string; storedRef: string |
           </button>
         </div>
 
-        {/* shown whenever no referrer is bound yet, so someone who arrived without an invite
-            link can still paste one in — arriving via ?ref= just pre-fills it */}
-        {boundRef === ZERO && (
+        {/* Already bound on-chain, or claimed by the first invite link -> show it locked.
+            Only someone with no referrer at all gets a field to type one in. */}
+        {boundRef !== ZERO ? (
+          <div className="ref-locked">
+            <span className="mini">{t("a.refLocked")}</span>
+            <b>{shortAddr(boundRef)}</b>
+            <span className="ref-note">{t("a.refOnchain")}</span>
+          </div>
+        ) : storedRef ? (
+          <div className="ref-locked">
+            <span className="mini">{t("a.refLocked")}</span>
+            <b>{shortAddr(storedRef)}</b>
+            <span className="ref-note">{t("a.refPending")}</span>
+          </div>
+        ) : (
           <div className="field" style={{ marginBottom: 18 }}>
             <label>{t("a.refInput")}</label>
             <input className="input" placeholder="0x…" value={refInput} onChange={(e) => setRefInput(e.target.value)} />
