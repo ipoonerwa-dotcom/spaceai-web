@@ -44,9 +44,19 @@ export default function Console() {
   const [storedRef, setStoredRef] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!refParam || !/^0x[a-fA-F0-9]{40}$/.test(refParam)) return;
-    if (localStorage.getItem(REF_PENDING)) return; // first link wins while still unclaimed
-    localStorage.setItem(REF_PENDING, refParam);
+    if (!refParam) return;
+    if (/^0x[a-fA-F0-9]{40}$/.test(refParam)) {
+      // first link wins while still unclaimed
+      if (!localStorage.getItem(REF_PENDING)) localStorage.setItem(REF_PENDING, refParam);
+    }
+    // Strip ?ref= from the address bar once it has been read. Leaving it there means someone
+    // who arrived through an invite link, then wants to share their OWN, copies the URL and
+    // hands out the inviter's link instead of theirs.
+    try {
+      const url = new URL(window.location.href);
+      url.searchParams.delete("ref");
+      window.history.replaceState({}, "", url.pathname + url.search + url.hash);
+    } catch { /* older webviews — harmless */ }
   }, [refParam]);
 
   useEffect(() => {
@@ -92,7 +102,8 @@ export default function Console() {
             </div>
             {tab === "stake" && <StakeTab address={address!} storedRef={storedRef} />}
             {tab === "positions" && <PositionsTab address={address!} />}
-            {tab === "invite" && <InviteTab address={address!} />}
+            {/* keyed on the address so switching accounts rebuilds the panel from scratch */}
+            {tab === "invite" && <InviteTab key={address} />}
             {tab === "team" && <TeamTab address={address!} />}
           </>
         )}
@@ -513,8 +524,11 @@ function Metric({ label, value, sub, accent }: { label: string; value: string; s
  * Invite panel: the user's own link plus their own numbers. Deliberately shows account data
  * only — the level thresholds and differential percentages stay out of the public UI.
  */
-function InviteTab({ address }: { address: string }) {
+function InviteTab() {
   const { t } = useI18n();
+  // read the wallet here rather than taking it as a prop, so a switched account can never
+  // leave this panel showing the previous address's link
+  const { address = "" } = useAccount();
   const [copied, setCopied] = useState(false);
   const bank = { address: BANK_ADDRESS as `0x${string}`, abi: BANK_ABI as never };
 
