@@ -151,6 +151,7 @@ function StakeTab({ address, storedRef }: { address: string; storedRef: string |
       { ...bank, functionName: "minStakeUsd" },
       { ...bank, functionName: "maxStakeUsd" },
       { ...bank, functionName: "remainingCapacityUsd", args: [address as `0x${string}`] },
+      { ...bank, functionName: "rewardMinUsd" },
     ],
   });
 
@@ -163,6 +164,7 @@ function StakeTab({ address, storedRef }: { address: string; storedRef: string |
   const minUsd = asBig(reads?.[5]?.result);
   const maxUsd = asBig(reads?.[6]?.result);
   const remainingUsd = asBig(reads?.[7]?.result);
+  const rewardMinUsd = asBig(reads?.[8]?.result);
 
   const amountWei = toWei(amount);
   const needsApprove = amountWei > 0n && allowance < amountWei;
@@ -175,6 +177,8 @@ function StakeTab({ address, storedRef }: { address: string; storedRef: string |
   const overCap = amountWei > 0n && maxUsd > 0n && usdWei > remainingUsd;
   const capFull = maxUsd > 0n && remainingUsd < 10n ** 12n;
   const limitBlocked = belowMin || overCap || capFull;
+  // allowed, but worth saying out loud: this size earns the referrer nothing
+  const belowReward = amountWei > 0n && rewardMinUsd > 0n && usdWei < rewardMinUsd && !belowMin;
 
   const { writeContractAsync, isPending } = useWriteContract();
   const [txHash, setTxHash] = useState<`0x${string}` | undefined>();
@@ -283,9 +287,15 @@ function StakeTab({ address, storedRef }: { address: string; storedRef: string |
         )}
 
         <div className="divider" />
+        {rewardMinUsd > 0n && (
+          <div className="kv">
+            <span>{t("a.rewardFloor")}</span>
+            <b style={{ fontSize: 12.5 }}>{usd(fromWei(rewardMinUsd), 0)}+</b>
+          </div>
+        )}
         {maxUsd > 0n && (
           <>
-            <div className="kv"><span>{t("a.limits")}</span><b style={{ fontSize: 12.5 }}>{usd(fromWei(minUsd), 0)} – {usd(fromWei(maxUsd), 0)}</b></div>
+            <div className="kv"><span>{t("a.limits")}</span><b style={{ fontSize: 12.5 }}>{usd(fromWei(maxUsd), 0)}</b></div>
             <div className="kv">
               <span>{t("a.remaining")}</span>
               <b style={{ color: capFull ? "var(--down)" : undefined }}>{usd(fromWei(remainingUsd))}</b>
@@ -311,6 +321,7 @@ function StakeTab({ address, storedRef }: { address: string; storedRef: string |
           )}
         </div>
         {capFull && <div className="notice warn" style={{ marginTop: 14 }}>{t("a.capFull")}</div>}
+        {belowReward && <div className="notice warn" style={{ marginTop: 14 }}>{t("a.belowReward")}</div>}
         {!capFull && belowMin && <div className="notice bad" style={{ marginTop: 14 }}>{t("a.errBelowMin")}</div>}
         {!capFull && overCap && <div className="notice bad" style={{ marginTop: 14 }}>{t("a.errOverCap")}</div>}
         {msg && <div className={`notice ${msg.k === "err" ? "bad" : ""}`} style={{ marginTop: 14 }}>{msg.t}</div>}
