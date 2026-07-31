@@ -206,8 +206,9 @@ const D: Record<string, Record<Lang, string>> = {
   "a.refNone": { zh: "未绑定", en: "Not bound", ja: "未設定", ko: "미설정" },
   "a.refInput": { zh: "推荐人地址(选填,仅首次质押时绑定)", en: "Referrer address (optional, bound on your first stake)", ja: "紹介者アドレス(任意・初回ステーク時に確定)", ko: "추천인 주소 (선택, 첫 스테이킹 시 확정)" },
   "a.refLocked": { zh: "推荐人(已锁定)", en: "Referrer (locked)", ja: "紹介者(確定済み)", ko: "추천인 (확정됨)" },
+  "a.refPendingLabel": { zh: "推荐人(待绑定)", en: "Referrer (pending)", ja: "紹介者(未確定)", ko: "추천인 (미확정)" },
   "a.refOnchain": { zh: "已在链上绑定,永久有效", en: "Bound on-chain — permanent", ja: "オンチェーンで確定済み・永続", ko: "온체인 확정 — 영구" },
-  "a.refPending": { zh: "首次质押时写入链上", en: "Written on-chain with your first stake", ja: "初回ステーク時にオンチェーンへ記録", ko: "첫 스테이킹 시 온체인에 기록" },
+  "a.refPending": { zh: "尚未上链 · 打开新的邀请链接可更换", en: "Not on-chain yet — a newer invite link replaces it", ja: "未確定 · 新しい招待リンクで変更されます", ko: "아직 온체인 아님 — 새 초대 링크로 변경됩니다" },
   "a.refBindNow": { zh: "立即绑定", en: "Bind now", ja: "今すぐ確定", ko: "지금 연결" },
   "a.refBinding": { zh: "绑定中…", en: "Binding…", ja: "確定中…", ko: "연결 중…" },
   "a.refBindTip": {

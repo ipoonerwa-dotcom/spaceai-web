@@ -33,21 +33,24 @@ export default function Console() {
   const [tab, setTab] = useState<Tab>(teamDeepLink ? "team" : "stake");
   const [walletOpen, setWalletOpen] = useState(false);
 
-  // Referral capture, first link wins — but scoped PER WALLET, not per browser.
+  // Referral capture: whichever invite link you arrive through is the one that applies.
   //
-  // A single global key meant one browser could only ever hold one referrer: switching wallets
-  // still read the first address that was ever captured, so a second invite link appeared to be
-  // ignored. Now an unclaimed link sits in `pending`, and the first wallet to connect claims it
-  // into its own key and frees `pending` for the next one. Within a wallet the first captured
-  // referrer is still permanent, which is the behaviour we want.
+  // The link you just opened always replaces whatever was remembered before, so someone who
+  // was handed a new link gets that person — not whoever they happened to click first weeks
+  // ago. Once a referrer is written on-chain it can never change; until then the newest link
+  // wins. Storage is keyed per wallet so switching accounts does not inherit someone else's.
   const refParam = params.get("ref");
   const [storedRef, setStoredRef] = useState<string | null>(null);
 
   useEffect(() => {
     if (!refParam) return;
     if (/^0x[a-fA-F0-9]{40}$/.test(refParam)) {
-      // first link wins while still unclaimed
-      if (!localStorage.getItem(REF_PENDING)) localStorage.setItem(REF_PENDING, refParam);
+      localStorage.setItem(REF_PENDING, refParam);
+      // apply straight to the connected wallet as well, so the panel updates immediately
+      if (address && refParam.toLowerCase() !== address.toLowerCase()) {
+        localStorage.setItem(REF_KEY(address), refParam);
+      }
+      setStoredRef(refParam);
     }
     // Strip ?ref= from the address bar once it has been read. Leaving it there means someone
     // who arrived through an invite link, then wants to share their OWN, copies the URL and
@@ -57,7 +60,7 @@ export default function Console() {
       url.searchParams.delete("ref");
       window.history.replaceState({}, "", url.pathname + url.search + url.hash);
     } catch { /* older webviews — harmless */ }
-  }, [refParam]);
+  }, [refParam, address]);
 
   useEffect(() => {
     if (!address) { setStoredRef(null); return; }
@@ -70,7 +73,6 @@ export default function Console() {
         localStorage.setItem(key, pending);
         mine = pending;
       }
-      if (pending) localStorage.removeItem(REF_PENDING);
     }
     setStoredRef(mine);
   }, [address, refParam]);
@@ -277,7 +279,7 @@ function StakeTab({ address, storedRef }: { address: string; storedRef: string |
         ) : storedRef ? (
           <div className="ref-locked" style={{ flexDirection: "column", alignItems: "stretch", gap: 8 }}>
             <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
-              <span className="mini">{t("a.refLocked")}</span>
+              <span className="mini">{t("a.refPendingLabel")}</span>
               <b>{shortAddr(storedRef)}</b>
               <button
                 className="btn btn-primary btn-sm"
